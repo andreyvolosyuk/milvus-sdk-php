@@ -1,0 +1,30 @@
+{
+  "name": "volosyuk/milvus_php",
+  "autoload": {
+    "psr-4": {
+      "Volosyuk\\MilvusPhp\\": "src/",
+      "Milvus\\": "Milvus/",
+      "GPBMetadata\\": "GPBMetadata/"
+    },
+    "files": [
+      "src/ORM/constants.php",
+      "src/Client/constants.php",
+      "src/ORM/Schema/helpers.php",
+      "src/ORM/Schema/constants.php",
+      "src/ORM/utility.php"
+    ],
+    "classmap": [
+    ]
+  },
+  "authors": [
+    {
+      "name": "Andrey Volosyuk",
+      "email": "valasiuk.andrei@gmail.com"
+    }
+  ],
+  "require": {
+    "google/protobuf": "^3.21",
+    "grpc/grpc": "^1.42",
+    "ext-grpc": "*"
+  }
+}
