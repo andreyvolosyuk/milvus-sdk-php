@@ -200,6 +200,8 @@ class ParamChecker
     }
 
     /**
+     * @param int $type
+     *
      * @throws ParamException
      */
     public static function isLegalDataType(int $type)
@@ -209,5 +211,75 @@ class ParamChecker
         } catch (UnexpectedValueException $e) {
             throw new ParamException($e);
         }
+    }
+
+    /**
+     * @param string $roleName
+     *
+     * @throws ParamException
+     */
+    public static function isLegalRoleName(string $roleName)
+    {
+        if (!static::isLegalString($roleName)) {
+            throw new ParamException("Role name must not be empty");
+        }
+    }
+
+    /**
+     * @param string $object
+     *
+     * @throws ParamException
+     */
+    public static function isLegalObject(string $object)
+    {
+        if (!static::isLegalString($object)) {
+            throw new ParamException("Object must not be empty");
+        }
+    }
+
+    /**
+     * @param string $objectName
+     *
+     * @throws ParamException
+     */
+    public static function isLegalObjectName(string $objectName)
+    {
+        if (!static::isLegalString($objectName)) {
+            throw new ParamException("Object name must not be empty");
+        }
+    }
+
+    /**
+     * @param string $privilege
+     *
+     * @throws ParamException
+     */
+    public static function isLegalPrivilege(string $privilege)
+    {
+        if (!static::isLegalString($privilege)) {
+            throw new ParamException("Privilege name must not be empty");
+        }
+    }
+
+    /**
+     * @param string $userName
+     *
+     * @throws ParamException
+     */
+    public static function isLegalUserName(string $userName)
+    {
+        if (!static::isLegalString($userName)) {
+            throw new ParamException("User name must not be empty");
+        }
+    }
+
+    /**
+     * @param string $item
+     *
+     * @return bool
+     */
+    private static function isLegalString(string $item): bool
+    {
+        return boolval($item);
     }
 }

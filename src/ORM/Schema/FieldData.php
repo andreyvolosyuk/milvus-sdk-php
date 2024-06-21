@@ -15,8 +15,8 @@ use Milvus\Proto\Schema\LongArray;
 use Milvus\Proto\Schema\ScalarField;
 use Milvus\Proto\Schema\StringArray;
 use Milvus\Proto\Schema\VectorField;
+use TypeError;
 use UnexpectedValueException;
-use ValueError;
 use Volosyuk\MilvusPhp\Exceptions\ParamException;
 use const Volosyuk\MilvusPhp\ORM\VECTOR_DATA_TYPES;
 
@@ -146,7 +146,7 @@ class FieldData
     /**
      * @return FieldDataGRPC
      *
-     * @throws ValueError
+     * @throws TypeError
      */
     public function toRaw(): FieldDataGRPC
     {
@@ -184,7 +184,7 @@ class FieldData
             return $fieldData->setVectors($vectorField);
         }
 
-        throw new ValueError(sprintf(
+        throw new TypeError(sprintf(
             "Invalid data type %s",
             DataType::name($this->type)
         ));

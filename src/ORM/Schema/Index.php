@@ -3,8 +3,9 @@
 
 namespace Volosyuk\MilvusPhp\ORM\Schema;
 
+
 use Exception;
-use Volosyuk\MilvusPhp\Client\MilvusServiceClient;
+use Volosyuk\MilvusPhp\Client\ClientAccessor;
 use Volosyuk\MilvusPhp\Client\ParamChecker;
 use Volosyuk\MilvusPhp\Exceptions\GRPCException;
 use Volosyuk\MilvusPhp\Exceptions\MilvusException;
@@ -13,6 +14,8 @@ use const Volosyuk\MilvusPhp\ORM\VECTOR_DATA_TYPES;
 
 abstract class Index
 {
+    use ClientAccessor;
+
     /**
      * @var string
      */
@@ -32,11 +35,6 @@ abstract class Index
      * @var array
      */
     protected $params;
-
-    /**
-     * @var MilvusServiceClient
-     */
-    private $client;
 
     /**
      * @param string $fieldName
@@ -97,8 +95,7 @@ abstract class Index
     }
 
     /**
-     * @throws GRPCException
-     * @throws MilvusException
+     * @throws GRPCException|MilvusException
      */
     public function drop()
     {
@@ -109,23 +106,6 @@ abstract class Index
                 $this->fieldName,
                 $this->name
             );
-    }
-
-    private function getClient(): MilvusServiceClient
-    {
-        if (!$this->client) {
-            throw new Exception('Client is not instantiated');
-        }
-
-        return $this->client;
-    }
-
-    /**
-     * @param MilvusServiceClient $client
-     */
-    public function setClient(MilvusServiceClient $client)
-    {
-        $this->client = $client;
     }
 
     /**

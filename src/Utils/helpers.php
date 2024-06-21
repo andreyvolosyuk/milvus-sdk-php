@@ -4,14 +4,14 @@
 namespace Volosyuk\MilvusPhp\Utils;
 
 use Milvus\Proto\Common\ConsistencyLevel;
-use ValueError;
+use Volosyuk\MilvusPhp\Exceptions\ValueError;
 
 /**
- * @param int|string $val
+ * @param $val
  *
  * @return int
  *
- * @throw ValueError
+ * @throws ValueError
  */
 function valueToConsistencyLevel($val): int {
     if (is_int($val) && ConsistencyLevel::name($val)) {

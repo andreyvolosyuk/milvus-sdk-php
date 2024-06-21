@@ -4,11 +4,7 @@
 namespace Volosyuk\MilvusPhp\ORM\Schema;
 
 
-use Milvus\Proto\Schema\DataType;
-use Milvus\Proto\Schema\FloatArray;
-use Milvus\Proto\Schema\ScalarField;
-use Milvus\Proto\Schema\VectorField;
-use ValueError;
+use TypeError;
 use Volosyuk\MilvusPhp\Exceptions\AutoIDException;
 use Volosyuk\MilvusPhp\Exceptions\DataTypeNotSupportException;
 use Volosyuk\MilvusPhp\Exceptions\ExceptionMessage;
@@ -83,7 +79,7 @@ class DataEntity
     /**
      * @return int
      *
-     * @throws ValueError
+     * @throws TypeError
      */
     public function getVectorSize(): int
     {
@@ -91,7 +87,7 @@ class DataEntity
             return count($this->getFirstValue());
         }
 
-        throw new ValueError("Data is not a vector");
+        throw new TypeError("Data is not a vector");
     }
 
     /**
@@ -103,7 +99,7 @@ class DataEntity
     {
         try {
             $dim = $this->getVectorSize();
-        } catch (ValueError $e) {
+        } catch (TypeError $e) {
             $dim = null;
         }
 

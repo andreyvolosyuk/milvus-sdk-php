@@ -3,9 +3,12 @@
 namespace Volosyuk\MilvusPhp\Client;
 
 
+use DateTime;
+use DateTimeImmutable;
 use Google\Protobuf\Internal\MapField;
 use Google\Protobuf\Internal\RepeatedField;
 use Grpc\UnaryCall;
+use Milvus\Proto\Common\ClientInfo;
 use Milvus\Proto\Common\ConsistencyLevel;
 use Milvus\Proto\Common\DslType;
 use Milvus\Proto\Common\ErrorCode;
@@ -15,14 +18,20 @@ use Milvus\Proto\Common\PlaceholderType;
 use Milvus\Proto\Common\PlaceholderValue;
 use Milvus\Proto\Common\Status;
 use Milvus\Proto\Milvus\BoolResponse;
+use Milvus\Proto\Milvus\ConnectRequest;
+use Milvus\Proto\Milvus\ConnectResponse;
 use Milvus\Proto\Milvus\CreateCollectionRequest;
+use Milvus\Proto\Milvus\CreateCredentialRequest;
 use Milvus\Proto\Milvus\CreateIndexRequest;
+use Milvus\Proto\Milvus\CreateRoleRequest;
+use Milvus\Proto\Milvus\DeleteCredentialRequest;
 use Milvus\Proto\Milvus\DescribeCollectionRequest;
 use Milvus\Proto\Milvus\DescribeCollectionResponse;
 use Milvus\Proto\Milvus\DescribeIndexRequest;
 use Milvus\Proto\Milvus\DescribeIndexResponse;
 use Milvus\Proto\Milvus\DropCollectionRequest;
 use Milvus\Proto\Milvus\DropIndexRequest;
+use Milvus\Proto\Milvus\DropRoleRequest;
 use Milvus\Proto\Milvus\FlushRequest;
 use Milvus\Proto\Milvus\FlushResponse;
 use Milvus\Proto\Milvus\GetCollectionStatisticsRequest;
@@ -33,28 +42,52 @@ use Milvus\Proto\Milvus\GetIndexBuildProgressRequest;
 use Milvus\Proto\Milvus\GetIndexBuildProgressResponse;
 use Milvus\Proto\Milvus\GetLoadingProgressRequest;
 use Milvus\Proto\Milvus\GetLoadingProgressResponse;
+use Milvus\Proto\Milvus\GrantEntity;
+use Milvus\Proto\Milvus\GrantorEntity;
 use Milvus\Proto\Milvus\HasCollectionRequest;
 use Milvus\Proto\Milvus\IndexDescription;
 use Milvus\Proto\Milvus\InsertRequest;
+use Milvus\Proto\Milvus\ListCredUsersRequest;
+use Milvus\Proto\Milvus\ListCredUsersResponse;
 use Milvus\Proto\Milvus\LoadCollectionRequest;
 use Milvus\Proto\Milvus\MilvusServiceClient as MilvusServiceClientBase;
 use Milvus\Proto\Milvus\MutationResult;
+use Milvus\Proto\Milvus\ObjectEntity;
+use Milvus\Proto\Milvus\OperatePrivilegeRequest;
+use Milvus\Proto\Milvus\OperatePrivilegeType;
+use Milvus\Proto\Milvus\OperateUserRoleRequest;
+use Milvus\Proto\Milvus\OperateUserRoleType;
+use Milvus\Proto\Milvus\PrivilegeEntity;
 use Milvus\Proto\Milvus\ReleaseCollectionRequest;
+use Milvus\Proto\Milvus\RoleEntity;
+use Milvus\Proto\Milvus\RoleResult;
 use Milvus\Proto\Milvus\SearchRequest;
 use Milvus\Proto\Milvus\SearchResults;
+use Milvus\Proto\Milvus\SelectGrantRequest;
+use Milvus\Proto\Milvus\SelectGrantResponse;
+use Milvus\Proto\Milvus\SelectRoleRequest;
+use Milvus\Proto\Milvus\SelectRoleResponse;
+use Milvus\Proto\Milvus\SelectUserRequest;
+use Milvus\Proto\Milvus\SelectUserResponse;
 use Milvus\Proto\Milvus\ShowCollectionsRequest;
 use Milvus\Proto\Milvus\ShowCollectionsResponse;
 use Milvus\Proto\Milvus\ShowType;
+use Milvus\Proto\Milvus\UserEntity;
+use Milvus\Proto\Milvus\UserResult;
 use Milvus\Proto\Schema\CollectionSchema;
 use Milvus\Proto\Schema\DataType;
 use Milvus\Proto\Schema\FieldSchema;
 use Traversable;
+use Volosyuk\MilvusPhp\Exceptions\AmbiguousInstancesException;
 use Volosyuk\MilvusPhp\Exceptions\ExceptionMessage;
 use Volosyuk\MilvusPhp\Exceptions\GRPCException;
 use Volosyuk\MilvusPhp\Exceptions\IndexNotExistException;
 use Volosyuk\MilvusPhp\Exceptions\MilvusException;
 use Volosyuk\MilvusPhp\Exceptions\ParamException;
 use Volosyuk\MilvusPhp\ORM\Schema\DataEntity;
+use Volosyuk\MilvusPhp\ORM\Schema\GrantItem;
+use Volosyuk\MilvusPhp\ORM\Schema\Role;
+use Volosyuk\MilvusPhp\ORM\Schema\User;
 use function Volosyuk\MilvusPhp\ORM\Schema\arrayToKeyValuePairs;
 use function Volosyuk\MilvusPhp\ORM\Schema\keyValuePairsSearchByName;
 use const Volosyuk\MilvusPhp\ORM\COMMON_TYPE_PARAMS_NORMALIZERS;
@@ -66,11 +99,6 @@ class MilvusServiceClient
      * @var int|null
      */
     private $timeout;
-
-    /**
-     * @var string $grpcHandlerClass
-     */
-    public $grpcHandlerClass = GRPCHandler::class;
 
     /**
      * @var GRPCHandler|null $grpcHandler
@@ -90,11 +118,50 @@ class MilvusServiceClient
     /**
      * @param GRPCHandler $grpcHandler
      * @param int|null $timeout
+     *
+     * @throws GRPCException|MilvusException
      */
     public function __construct(GRPCHandler $grpcHandler, int $timeout = null)
     {
         $this->timeout = $timeout ?? $grpcHandler->getTimeout();
         $this->grpcHandler = $grpcHandler;
+        if (!$grpcHandler->isConnected()) {
+            $this->connect();
+            $grpcHandler->connected();
+        }
+    }
+
+    /**
+     * @throws GRPCException|MilvusException
+     * @throws \Exception
+     */
+    public function connect()
+    {
+        $clientInfo = (new ClientInfo())
+            ->setSdkType("PHP")
+            ->setHost(gethostname())
+            ->setLocalTime((new DateTimeImmutable('now'))->format("Y-m-d H:i:s.u"));
+
+        if ($this->grpcHandler->getUser()) {
+            $clientInfo->setUser($this->grpcHandler->getUser());
+        }
+
+        $connectRequest = (new ConnectRequest())
+            ->setClientInfo($clientInfo);
+
+        $func = $this
+            ->getClient()
+            ->Connect($connectRequest);
+
+        /**
+         * @var ConnectResponse $response
+         */
+        $response = $this->call($func);
+        $this->checkStatus($response->getStatus());
+
+        $identifier = $response->getIdentifier();
+        $this->grpcHandler->setHeader('identifier', $identifier);
+        $this->grpcHandler->connected();
     }
 
     /**
@@ -102,7 +169,7 @@ class MilvusServiceClient
      *
      * @return bool
      *
-     * @throws GRPCException
+     * @throws GRPCException|MilvusException
      */
     public function hasCollection(string $name): bool
     {
@@ -120,6 +187,8 @@ class MilvusServiceClient
          * @var BoolResponse $response
          */
         $response = $this->call($func);
+        $this->checkStatus($response->getStatus());
+
         return $response->getValue();
     }
 
@@ -333,7 +402,9 @@ class MilvusServiceClient
         $showCollectionsResponse = $this->call($func);
         $this->checkStatus($showCollectionsResponse->getStatus());
 
-        return $showCollectionsResponse->getCollectionNames()->getIterator();
+        return $showCollectionsResponse
+            ->getCollectionNames()
+            ->getIterator();
     }
 
     /**
@@ -639,10 +710,11 @@ class MilvusServiceClient
     /**
      * @param string $collectionName
      * @param string $fieldName
-     *
+     * @param string $indexName
      * @return array|int[]
      *
-     * @throws GRPCException|MilvusException
+     * @throws GRPCException
+     * @throws MilvusException
      */
     public function getIndexBuildProgress(string $collectionName, string $fieldName, string $indexName): array
     {
@@ -651,11 +723,13 @@ class MilvusServiceClient
             ->setFieldName($fieldName)
             ->setIndexName($indexName);
 
-        $func = $this->getClient()->GetIndexBuildProgress(
-            $request,
-            $this->getMetaData(),
-            $this->getOptions()
-        );
+        $func = $this
+            ->getClient()
+            ->GetIndexBuildProgress(
+                $request,
+                $this->getMetaData(),
+                $this->getOptions()
+            );
 
         /**
          * @var GetIndexBuildProgressResponse $response
@@ -850,6 +924,463 @@ class MilvusServiceClient
     }
 
     /**
+     * @param string $userName
+     * @param string $password
+     *
+     * @return User
+     *
+     * @throws GRPCException|MilvusException|ParamException
+     */
+    public function creatUser(string $userName, string $password): User
+    {
+        ParamChecker::checkArray([
+            "userName" => $userName
+        ]);
+
+        $createUserRequest = (new CreateCredentialRequest())
+            ->setUsername($userName)
+            ->setPassword(base64_encode($password));
+
+        $func = $this
+            ->getClient()
+            ->CreateCredential(
+                $createUserRequest,
+                $this->getMetaData(),
+                $this->getOptions()
+            );
+
+        $this->callAndProcessStatus($func);
+
+        $user = new User($userName);
+        $user->setClient($this);
+        return $user;
+    }
+
+    /**
+     * @param string $userName
+     *
+     * @return void
+     *
+     * @throws GRPCException|MilvusException|ParamException
+     */
+    public function dropUser(string $userName)
+    {
+        ParamChecker::checkArray([
+            "userName" => $userName
+        ]);
+
+        $dropUserRequest = (new DeleteCredentialRequest())
+            ->setUsername($userName);
+
+        $func = $this
+            ->getClient()
+            ->DeleteCredential(
+                $dropUserRequest,
+                $this->getMetaData(),
+                $this->getOptions()
+            );
+
+        $this->callAndProcessStatus($func);
+    }
+
+    /**
+     * @return string[]
+     *
+     * @throws GRPCException
+     * @throws MilvusException
+     */
+    public function listUsernames(): array
+    {
+        $listUsernamesRequest = new ListCredUsersRequest();
+
+        $func = $this
+            ->getClient()
+            ->ListCredUsers($listUsernamesRequest,
+                $this->getMetaData(),
+                $this->getOptions()
+            );
+
+        /**
+         * @var ListCredUsersResponse $response
+         */
+        $response = $this->call($func);
+        $this->checkStatus($response->getStatus());
+
+        return iterator_to_array($response
+            ->getUsernames()
+            ->getIterator());
+    }
+
+    /**
+     * @param string $userName
+     *
+     * @return User|null
+     *
+     * @throws AmbiguousInstancesException|GRPCException|MilvusException|ParamException
+     */
+    public function describeUser(string $userName)
+    {
+        ParamChecker::checkArray([
+            "userName" => $userName
+        ]);
+
+        $userEntity = (new UserEntity())
+            ->setName($userName);
+
+        $selectUserRequest = (new SelectUserRequest())
+            ->setUser($userEntity)
+            ->setIncludeRoleInfo(true);
+
+        $func = $this
+            ->getClient()
+            ->SelectUser($selectUserRequest,
+                $this->getMetaData(),
+                $this->getOptions()
+            );
+
+        /**
+         * @var SelectUserResponse $response
+         */
+        $response = $this->call($func);
+        $this->checkStatus($response->getStatus());
+
+        /**
+         * @var UserResult[] $users
+         */
+        $users = iterator_to_array($response->getResults()->getIterator());
+        if (count($users) > 1) {
+            throw new AmbiguousInstancesException(sprintf(
+                ExceptionMessage::AMBIGUOUS_INSTANCES_FOUND,
+                "user",
+                $userName)
+            );
+        } elseif (!$users) {
+            return null;
+        }
+
+        $userResult = $users[0];
+        $user = new User($userName, array_map(function (RoleEntity $roleEntity) {
+            $role = new Role($roleEntity->getName());
+            $role->setClient($this);
+            return $role;
+        }, iterator_to_array($userResult->getRoles()->getIterator())));
+        $user->setClient($this);
+        return $user;
+    }
+
+    /**
+     * @param string $roleName
+     *
+     * @return Role
+     *
+     * @throws GRPCException|MilvusException|ParamException
+     */
+    public function createRole(string $roleName): Role
+    {
+        ParamChecker::checkArray([
+            "roleName" => $roleName
+        ]);
+
+        $roleEntity = (new RoleEntity())
+            ->setName($roleName);
+
+        $createRoleRequest = (new CreateRoleRequest())
+            ->setEntity($roleEntity);
+
+
+        $func = $this
+            ->getClient()
+            ->CreateRole(
+                $createRoleRequest,
+                $this->getMetaData(),
+                $this->getOptions()
+            );
+
+        $this->callAndProcessStatus($func);
+
+        $role = new Role($roleName);
+        $role->setClient($this);
+        return $role;
+    }
+
+    /**
+     * @param string $roleName
+     *
+     * @return Role
+     *
+     * @throws GRPCException|MilvusException|ParamException
+     */
+    public function describeRole(string $roleName): Role
+    {
+        ParamChecker::checkArray([
+            "roleName" => $roleName
+        ]);
+
+        $role = (new RoleEntity())
+            ->setName($roleName);
+
+        $entity = (new GrantEntity())
+            ->setRole($role); # todo set db_name
+
+        $selectGrantRequest = (new SelectGrantRequest())
+            ->setEntity($entity);
+
+        $func = $this
+            ->getClient()
+            ->SelectGrant($selectGrantRequest,
+                $this->getMetaData(),
+                $this->getOptions()
+            );
+
+        /**
+         * @var SelectGrantResponse $response
+         */
+        $response = $this->call($func);
+        $this->checkStatus($response->getStatus());
+
+        $grantEntityIterator = $response
+            ->getEntities()
+            ->getIterator();
+
+        $role = new Role(
+            $roleName,
+            array_map(function (GrantEntity $grantEntity) {
+                return GrantItem::fromGrantEntity($grantEntity);
+            }, iterator_to_array($grantEntityIterator))
+        );
+        $role->setClient($this);
+        return $role;
+    }
+
+    /**
+     * @param string $roleName
+     *
+     * @throws ParamException|GRPCException|MilvusException
+     */
+    public function dropRole(string $roleName)
+    {
+        ParamChecker::checkArray([
+            "roleName" => $roleName
+        ]);
+
+        $dropRoleRequest = (new DropRoleRequest())
+            ->setRoleName($roleName);
+
+        $func = $this
+            ->getClient()
+            ->DropRole(
+                $dropRoleRequest,
+                $this->getMetaData(),
+                $this->getOptions()
+            );
+
+        $this->callAndProcessStatus($func);
+    }
+
+    /**
+     * @return string[]
+     *
+     * @throws GRPCException|MilvusException
+     */
+    public function listRoles(): array
+    {
+        $selectRoleRequest = (new SelectRoleRequest())
+            ->setIncludeUserInfo(false);
+
+        $func = $this
+            ->getClient()
+            ->SelectRole($selectRoleRequest,
+                $this->getMetaData(),
+                $this->getOptions()
+            );
+
+        /**
+         * @var SelectRoleResponse $response
+         */
+        $response = $this->call($func);
+        $this->checkStatus($response->getStatus());
+
+        $roleResultIterator = $response
+            ->getResults()
+            ->getIterator();
+
+        return array_map(function (RoleResult $roleResult) {
+            return $roleResult
+                ->getRole()
+                ->getName();
+        }, iterator_to_array($roleResultIterator));
+    }
+
+    /**
+     * @param string $roleName
+     * @param string $object
+     * @param string $objectName
+     * @param string $privilege
+     * @param string $dbName
+     * @param int $operatePrivilegeType
+     *
+     * @return void
+     *
+     * @throws GRPCException|MilvusException|ParamException
+     */
+    private function operatePrivilege(string $roleName, string $object, string $objectName,
+                                      string $privilege, string $dbName,
+                                      int $operatePrivilegeType)
+    {
+        ParamChecker::checkArray([
+            "roleName" => $roleName,
+            "object" => $object,
+            "objectName" => $objectName,
+            "privilege" => $privilege
+        ]);
+
+        $roleEntity = (new RoleEntity())
+            ->setName($roleName);
+
+        $objectEntity = (new ObjectEntity())
+            ->setName($object);
+
+        $privilegeEntity = (new PrivilegeEntity())
+            ->setName($privilege);
+
+        $grantorEntity = (new GrantorEntity())
+            ->setPrivilege($privilegeEntity);
+
+        $entity = (new GrantEntity())
+            ->setRole($roleEntity)
+            ->setObject($objectEntity)
+            ->setObjectName($objectName)
+            ->setDbName($dbName)
+            ->setGrantor($grantorEntity);
+
+        $privilegeRequest = (new OperatePrivilegeRequest())
+            ->setEntity($entity)
+            ->setType($operatePrivilegeType);
+
+        $func = $this
+            ->getClient()
+            ->OperatePrivilege(
+                $privilegeRequest,
+                $this->getMetaData(),
+                $this->getOptions()
+            );
+
+        $this->callAndProcessStatus($func);
+    }
+
+    /**
+     * @param string $roleName
+     * @param string $object
+     * @param string $objectName
+     * @param string $privilege
+     * @param string $dbName
+     *
+     * @return void
+     *
+     * @throws GRPCException|MilvusException|ParamException
+     */
+    public function grantPrivilege(string $roleName, string $object, string $objectName,
+                                   string $privilege, string $dbName = "")
+    {
+        $this->operatePrivilege(
+            $roleName,
+            $object,
+            $objectName,
+            $privilege,
+            $dbName,
+            OperatePrivilegeType::Grant
+        );
+    }
+
+    /**
+     * @param string $roleName
+     * @param string $object
+     * @param string $objectName
+     * @param string $privilege
+     * @param string $dbName
+     *
+     * @throws GRPCException|MilvusException|ParamException
+     */
+    public function revokePrivilege(string $roleName, string $object, string $objectName,
+                                    string $privilege, string $dbName = "")
+    {
+        $this->operatePrivilege(
+            $roleName,
+            $object,
+            $objectName,
+            $privilege,
+            $dbName,
+            OperatePrivilegeType::Revoke
+        );
+    }
+
+    /**
+     * @param string $userName
+     * @param string $roleName
+     * @param int $type
+     *
+     * @return void
+     *
+     * @throws GRPCException|MilvusException|ParamException
+     */
+    private function operateRole(string $userName, string $roleName, int $type)
+    {
+        ParamChecker::checkArray([
+            "userName" => $userName,
+            "roleName" => $roleName
+        ]);
+
+        $operateRoleRequest = (new OperateUserRoleRequest())
+            ->setUsername($userName)
+            ->setRoleName($roleName)
+            ->setType($type);
+
+        $func = $this
+            ->getClient()
+            ->OperateUserRole(
+                $operateRoleRequest,
+                $this->getMetaData(),
+                $this->getOptions()
+            );
+
+        $this->callAndProcessStatus($func);
+    }
+
+    /**
+     * @param string $userName
+     * @param string $roleName
+     *
+     * @return void
+     *
+     * @throws GRPCException|MilvusException|ParamException
+     */
+    public function grantRole(string $userName, string $roleName)
+    {
+        $this->operateRole(
+            $userName,
+            $roleName,
+            OperateUserRoleType::AddUserToRole
+        );
+    }
+
+    /**
+     * @param string $userName
+     * @param string $roleName
+     *
+     * @return void
+     *
+     * @throws GRPCException|MilvusException|ParamException
+     */
+    public function revokeRole(string $userName, string $roleName)
+    {
+        $this->operateRole(
+            $userName,
+            $roleName,
+            OperateUserRoleType::RemoveUserFromRole
+        );
+    }
+
+    /**
      * @param UnaryCall $call
      *
      * @return mixed
@@ -919,11 +1450,7 @@ class MilvusServiceClient
     private function getClient(): MilvusServiceClientBase
     {
         if ($this->client === null) {
-            $this->client = new $this->milvusClientClass(
-                $this->grpcHandler->getTarget(),
-                [],
-                $this->grpcHandler->getChannel()
-            );
+            $this->client = $this->grpcHandler->getStub($this->milvusClientClass);
         }
 
         return $this->client;

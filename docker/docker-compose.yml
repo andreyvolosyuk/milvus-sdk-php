@@ -39,8 +39,8 @@ services:
       - .env
     volumes:
       - ${DOCKER_VOLUME_DIRECTORY:-.}/volumes/milvus:/var/lib/milvus
-      #- ./config/milvus.yaml:/milvus/configs/milvus.yaml
-      #- ./config/cert:/milvus/configs/cert
+      - ./config/milvus.yaml:/milvus/configs/milvus.yaml
+      - ./config/cert:/milvus/configs/cert
     ports:
       - "19530:19530"
     depends_on:

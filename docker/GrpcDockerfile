@@ -1,0 +1,41 @@
+FROM php:7
+
+WORKDIR /var/www
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+		libfreetype6-dev \
+        libldb-dev \
+        unzip \
+        curl \
+        zip \
+        libgif-dev \
+        apt-utils \
+        libzip-dev \
+        zlib1g-dev \
+        && docker-php-ext-install zip \
+        && docker-php-ext-install -j$(nproc) gd
+
+# install protobuf
+RUN cd /tmp && curl -OL https://github.com/google/protobuf/releases/download/v3.2.0/protoc-3.2.0-linux-x86_64.zip \
+            && unzip protoc-3.2.0-linux-x86_64.zip -d protoc3 \
+            && mv protoc3/bin/* /usr/local/bin/ \
+            && mv protoc3/include/* /usr/local/include/
+
+RUN pecl install grpc
+RUN pecl install protobuf
+
+# enable php extension
+RUN docker-php-ext-enable grpc && \
+    docker-php-ext-enable protobuf
+
+
+# PHP protoc plugin
+# ONLY FOR DEV
+RUN mkdir -p /tmp/php-protoc && \
+    git clone -b $(curl -L https://grpc.io/release) https://github.com/grpc/grpc /tmp/php-protoc && \
+    cd /tmp/php-protoc && \
+    git submodule update --init && \
+    make grpc_php_plugin && \
+    mkdir /opt && \
+    mv /tmp/php-protoc/bins/opt/* /opt && \
+    rm -Rf /tmp/php-protoc

@@ -6,11 +6,13 @@ namespace Volosyuk\MilvusPhp\Exceptions;
 
 class ExceptionMessage
 {
+    const AMBIGUOUS_INSTANCES_FOUND = "More than one %s instance found while querying %s.";
     const AUTO_ID_FIELD_TYPE = "The auto_id can only be specified on field with DataType.INT64.";
     const AUTO_ID_ONLY_ON_PK = "The auto_id can only be specified on the primary key field.";
     const AUTO_ID_TYPE = "Param auto_id must be bool type.";
     const COLLECTION_ENTITY_FIELD_NUM_MISMATCH = "Collection fields num (%s) and entity fields num (%s) mismatch";
     const COLLECTION_NOT_EXIST_NO_SCHEMA = "Collection %s not exist, or you can pass in schema to create one.";
+    const CONNECTION_CONFIGURATION_DISCREPANCY = "Alias of %s already creating connections, but the configure is not the same as passed in.";
     const CONSISTENCY_LEVEL_INCONSISTENT = "The parameter consistency_level is inconsistent with that of existed collection.";
     const DATA_LENGTHS_INCONSISTENT = "Arrays must all be same length.";
     const FIELD_D_TYPE = "Field dtype must be of DataType.";
@@ -22,6 +24,10 @@ class ExceptionMessage
     const FIELDS_NUM_INCONSISTENT = "The data fields number does not match with schema.";
     const EMPTY_FIELD_NAME = "Field name must not be empty";
     const EMPTY_SCHEMA = "The field of the schema cannot be empty.";
+    const ILLEGAL_HOST = "Host of type %s is illegal";
+    const ILLEGAL_PORT = "Port of type %d is illegal";
+    const ILLEGAL_PORT_RANGE = "Port number %s out of range, valid range [0, 65535)";
+    const ILLEGAL_HOST_OR_PORT = "Illegal host: %s or port: %d, should be in form of '111.1.1.1', '19530'";
     const IS_PRIMARY_TYPE = "Param is_primary must be bool type.";
     const MISSING_ENTITY_PARAM = "Missing param in entities, a field must have %s";
     const NO_COLLECTION_NAME = "No collection name specified.";

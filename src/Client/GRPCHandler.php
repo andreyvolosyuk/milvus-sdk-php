@@ -2,8 +2,11 @@
 
 namespace Volosyuk\MilvusPhp\Client;
 
+use Exception;
+use Grpc\BaseStub;
 use Grpc\Channel;
 use Grpc\ChannelCredentials;
+use Grpc\Interceptor;
 use Grpc\Internal\InterceptorChannel;
 use Grpc\UnaryCall;
 use Volosyuk\MilvusPhp\Exceptions\GRPCException;
@@ -13,20 +16,46 @@ use const Grpc\STATUS_OK;
 
 class GRPCHandler
 {
+    # todo go through all the settings in pymilvus/orm/connections
+
     /**
      * @var null|Channel
      */
     private $channel;
 
     /**
+     * @var bool
+     */
+    private $connected = False;
+
+    /**
+     * @var HeaderAddderInterceptor
+     */
+    private $headerAdderInterceptor;
+
+    /**
      * @var int
      */
-    private $timeout;
+    private $connectivityState;
 
-    private function __construct(Channel $channel, $timeout)
+    /**
+     * @var Settings
+     */
+    private $settings;
+
+    /**
+     * @param Settings|null $settings
+     *
+     * @throws Exception
+     */
+    public function __construct(Settings $settings)
     {
-        $this->channel = $channel;
-        $this->timeout = $timeout;
+        $this->settings = $settings;
+    }
+
+    public function __destruct()
+    {
+        $this->disconnect();
     }
 
     /**
@@ -36,6 +65,7 @@ class GRPCHandler
      */
     public function call(UnaryCall $call)
     {
+
         list($response, $status) = $call->wait();
 
         if ($status->code === STATUS_OK) {
@@ -45,40 +75,62 @@ class GRPCHandler
         throw new GRPCException($status->details, $status->code);
     }
 
-    /**
-     * @return Channel
-     */
-    public function getChannel(): Channel
-    {
-        return $this->channel;
-    }
-
     public function close()
     {
-        if ($this->channel) {
+        if ($this->channel !== null) {
             $this->channel->close();
         }
     }
 
     /**
+     * @param HeaderAddderInterceptor $interceptor
      * @param Settings $settings
      *
-     * @return GRPCHandler
+     * @return void
+     *
      */
-    public static function instantiate(Settings $settings): self
+    private static function setupAuthInterceptor(HeaderAddderInterceptor $interceptor, Settings $settings)
     {
-        $channel = new Channel($settings->getGrpcAddress(), [ # todo support security
-            'credentials' => static::getCredentials($settings),
-            'grpc.ssl_target_name_override' => $settings->serverName
+        if ($settings->token) {
+            $interceptor->setParameter("Authorization", base64_encode($settings->token));
+        } elseif ($settings->user && $settings->password) {
+            $interceptor->setParameter("Authorization", base64_encode(sprintf("%s:%s", $settings->user, $settings->password)));
+        }
+    }
+
+    /**
+     * @return Channel
+     *
+     * @throws Exception
+     */
+    public function getChannel(): Channel
+    {
+        if ($this->channel !== null) {
+            return $this->channel;
+        }
+
+        $this->headerAdderInterceptor = new HeaderAddderInterceptor();
+
+        $this->channel = new Channel($this->settings->getGrpcAddress(), [ # todo support security
+            'credentials' => static::getCredentials($this->settings),
+            'grpc.ssl_target_name_override' => $this->settings->serverName,
+            //'grpc.keepalive_time_ms' => 1,
+            //'grpc.keepalive_timeout_ms' => 1,
         ]);
 
+        static::setupAuthInterceptor($this->headerAdderInterceptor, $this->settings);
+        #todo setup db interceptor
+        $this->channel = new InterceptorChannel($this->channel, $this->headerAdderInterceptor);
 
-        return new self($channel, $settings->getGRPCTimeout());
+        $this->connectivityState = $this->channel->getConnectivityState(true);
+
+        return $this->channel;
     }
 
     /**
      * @param Settings $settings
-     * @return ChannelCredentials
+     *
+     * @return ChannelCredentials|null
      */
     private static function getCredentials(Settings $settings)
     {
@@ -102,9 +154,13 @@ class GRPCHandler
         return ChannelCredentials::createSsl();
     }
 
-    public function getTarget(): string
+    public function getStub(string $stubClass): BaseStub
     {
-        return $this->channel->getTarget();
+        return new $stubClass(
+            $this->getChannel()->getTarget(),
+            [],
+            $this->getChannel()
+        );
     }
 
     /**
@@ -112,6 +168,52 @@ class GRPCHandler
      */
     public function getTimeout(): int
     {
-        return $this->timeout;
+        return $this->settings->timeout;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isConnected(): bool
+    {
+        return $this->connected;
+    }
+
+    public function connected()
+    {
+        $this->connected = true;
+    }
+
+    public function disconnect()
+    {
+        $this->close();
+        $this->connected = false;
+    }
+
+    /**
+     * @return string
+     */
+    public function getUser(): string
+    {
+        return $this->settings->user;
+    }
+
+    /**
+     * @return string
+     */
+    public function getAddress(): string
+    {
+        return $this->settings->getGRPCAddress();
+    }
+
+    /**
+     * @param string $name
+     * @param string $value
+     *
+     * @return void
+     */
+    public function setHeader(string $name, string $value)
+    {
+        $this->headerAdderInterceptor->setParameter($name, $value);
     }
 }

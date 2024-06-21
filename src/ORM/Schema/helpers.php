@@ -14,8 +14,9 @@ use Milvus\Proto\Schema\IntArray;
 use Milvus\Proto\Schema\LongArray;
 use Milvus\Proto\Schema\StringArray;
 use ReflectionException;
-use ValueError;
+use TypeError;
 use Volosyuk\MilvusPhp\Exceptions\AutoIDException;
+use Volosyuk\MilvusPhp\Exceptions\ClassNotFoundException;
 use Volosyuk\MilvusPhp\Exceptions\DataNotMatchException;
 use Volosyuk\MilvusPhp\Exceptions\DataTypeNotSupportException;
 use Volosyuk\MilvusPhp\Exceptions\ExceptionMessage;
@@ -108,8 +109,8 @@ function checkInsertDataSchema(CollectionSchema $schema, array $data)
  *
  * @return DataEntity[]
  *
- * @throws DataNotMatchException
- * @throws ParamException
+ * @throws DataNotMatchException|DataTypeNotSupportException|ParamException|ReflectionException
+ * @throws AutoIDException|PrimaryKeyException|SchemaNotReadyException
  */
 function prepareInsertData(CollectionSchema $schema, array $data): array
 {
@@ -147,14 +148,14 @@ function prepareInsertData(CollectionSchema $schema, array $data): array
  *
  * @return string
  *
- * @throws ValueError
+ * @throws TypeError
  */
 function scalarToStringType(int $dataType): string
 {
     $dataTypeStr = SCALARS_DATA_TYPE_FIELD_MAPPER[$dataType] ?? null;
 
     if (is_null($dataTypeStr)) {
-        throw new ValueError("$dataType is unknown");
+        throw new TypeError("$dataType is unknown");
     }
 
     return $dataTypeStr;
@@ -165,7 +166,7 @@ function scalarToStringType(int $dataType): string
  *
  * @return BoolArray|IntArray|LongArray|FloatArray|DoubleArray|StringArray
  *
- * @throws ValueError
+ * @throws ClassNotFoundException
  */
 function scalarToDataArray(int $dataType)
 {
@@ -173,7 +174,7 @@ function scalarToDataArray(int $dataType)
 
     $clsFQN = sprintf("Milvus\Proto\Schema\%sArray", $dataTypeStr);
     if (!class_exists($clsFQN)) {
-        throw new ValueError("$clsFQN class not found");
+        throw new ClassNotFoundException("$clsFQN class not found");
     }
 
     return (new $clsFQN());
