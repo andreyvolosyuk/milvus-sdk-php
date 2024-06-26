@@ -1,10 +1,9 @@
 <?php
 
 use PHPUnit\Framework\TestCase;
-use Volosyuk\MilvusPhp\Client\Hit;
-use function Volosyuk\MilvusPhp\Client\isLegalPort;
-use function Volosyuk\MilvusPhp\Client\isLegalHost;
 use function Volosyuk\MilvusPhp\Client\isLegalAddress;
+use function Volosyuk\MilvusPhp\Client\isLegalHost;
+use function Volosyuk\MilvusPhp\Client\isLegalPort;
 
 require_once "src/Client/helpers.php";
 

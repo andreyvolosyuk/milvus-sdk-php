@@ -18,12 +18,13 @@ use Volosyuk\MilvusPhp\Exceptions\IndexNotExistException;
 use Volosyuk\MilvusPhp\Exceptions\MilvusException;
 use Volosyuk\MilvusPhp\Exceptions\ParamException;
 use Volosyuk\MilvusPhp\Exceptions\SchemaNotReadyException;
+use Volosyuk\MilvusPhp\Exceptions\ValueError;
 use Volosyuk\MilvusPhp\ORM\Schema\CollectionSchema;
 use Volosyuk\MilvusPhp\ORM\Schema\Index;
 use function Volosyuk\MilvusPhp\ORM\Schema\checkInsertDataSchema;
 use function Volosyuk\MilvusPhp\ORM\Schema\keyValuePairsToArray;
 use function Volosyuk\MilvusPhp\ORM\Schema\prepareInsertData;
-use function Volosyuk\MilvusPhp\Utils\valueToConsistencyLevel;
+use function Volosyuk\MilvusPhp\ORM\Schema\inferConsistencyLevel;
 use const Volosyuk\MilvusPhp\Client\DEFAULT_CONSISTENCY_LEVEL;
 
 class Collection {
@@ -74,8 +75,16 @@ class Collection {
                 ->describeCollection($this->name);
 
             $consistencyLevel = $descCollectionResp->getConsistencyLevel();
-            if (array_key_exists("consistency_level", $collectionParams) && $consistencyLevel !== valueToConsistencyLevel($collectionParams["consistency_level"])) {
-                throw new SchemaNotReadyException(ExceptionMessage::CONSISTENCY_LEVEL_INCONSISTENT);
+            if (array_key_exists("consistency_level", $collectionParams)) {
+                try {
+                    $providedConsistency = inferConsistencyLevel($collectionParams["consistency_level"]);
+                } catch (UnexpectedValueException $e) {
+                    throw new SchemaNotReadyException($e);
+                }
+
+                if ($consistencyLevel !== $providedConsistency) {
+                    throw new SchemaNotReadyException(ExceptionMessage::CONSISTENCY_LEVEL_INCONSISTENT);
+                }
             }
             $serverSchema = CollectionSchema::fromGRPC($descCollectionResp->getSchema());
             if (!$schema) {

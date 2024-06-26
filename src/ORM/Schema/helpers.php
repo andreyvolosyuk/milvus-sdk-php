@@ -4,6 +4,7 @@ namespace Volosyuk\MilvusPhp\ORM\Schema;
 
 
 use Google\Protobuf\Internal\RepeatedField;
+use Milvus\Proto\Common\ConsistencyLevel;
 use Milvus\Proto\Common\KeyValuePair;
 use Milvus\Proto\Schema\BoolArray;
 use Milvus\Proto\Schema\DataType as DataType;
@@ -15,6 +16,7 @@ use Milvus\Proto\Schema\LongArray;
 use Milvus\Proto\Schema\StringArray;
 use ReflectionException;
 use TypeError;
+use UnexpectedValueException;
 use Volosyuk\MilvusPhp\Exceptions\AutoIDException;
 use Volosyuk\MilvusPhp\Exceptions\ClassNotFoundException;
 use Volosyuk\MilvusPhp\Exceptions\DataNotMatchException;
@@ -23,6 +25,7 @@ use Volosyuk\MilvusPhp\Exceptions\ExceptionMessage;
 use Volosyuk\MilvusPhp\Exceptions\ParamException;
 use Volosyuk\MilvusPhp\Exceptions\PrimaryKeyException;
 use Volosyuk\MilvusPhp\Exceptions\SchemaNotReadyException;
+use Volosyuk\MilvusPhp\Exceptions\ValueError;
 
 /**
  * @param float|bool|int|string $datum
@@ -41,7 +44,7 @@ function inferDataType($datum): int
         return DataType::Int64;
     } elseif (is_string($datum)) {
         return DataType::VarChar;
-    } elseif (is_array($datum) && is_float($datum[0])) {
+    } elseif (is_array($datum) && (is_float($datum[0]) || is_integer($datum[0]))) {
         return DataType::FloatVector;
     }
 
@@ -288,4 +291,21 @@ function idsToRepeatedField(IDs $ids): RepeatedField
     }
 
     throw new ParamException("IDs internal data type must be either string or int");
+}
+
+/**
+ * @param $val
+ *
+ * @return int
+ *
+ * @throws UnexpectedValueException
+ */
+function inferConsistencyLevel($val): int {
+    if (is_int($val) && ConsistencyLevel::name($val)) {
+        return $val;
+    } elseif (is_string($val) ) {
+        return ConsistencyLevel::value($val);
+    }
+
+    throw new UnexpectedValueException("Invalid consistency level " . $val);
 }
