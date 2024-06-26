@@ -39,8 +39,10 @@ jobs:
       - name: Install dependencies
         run: composer install --prefer-dist --no-progress
 
-      - name: Run test suite
-        run: phpunit --configuration phpunit.xml tests --teamcity
+      - name: PHPUnit tests
+        uses: php-actions/phpunit@v3
+        with:
+          configuration: "phpunit.xml"
 
       - name: Make code coverage badge
         uses: timkrase/phpunit-coverage-badge@v1.2.1
