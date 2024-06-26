@@ -24,6 +24,7 @@ jobs:
       id: composer-cache
       uses: actions/cache@v3
       with:
+        php-version: 7.0
         path: vendor
         key: ${{ runner.os }}-php-${{ hashFiles('**/composer.lock') }}
         restore-keys: |
@@ -31,6 +32,9 @@ jobs:
 
     - name: Install dependencies
       run: composer install --prefer-dist --no-progress
+
+    - name: Run test suite
+      run: phpunit --configuration phpunit.xml tests --teamcity
 
     - name: Make code coverage badge
       uses: timkrase/phpunit-coverage-badge@v1.2.1
@@ -49,6 +53,3 @@ jobs:
 
     # Add a test script to composer.json, for instance: "test": "vendor/bin/phpunit"
     # Docs: https://getcomposer.org/doc/articles/scripts.md
-
-    - name: Run test suite
-      run: phpunit --configuration phpunit.xml tests --teamcity

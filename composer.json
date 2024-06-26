@@ -1,6 +1,21 @@
 {
   "name": "volosyuk/milvus_php",
+  "description": "PHP SDK for Milvus",
   "license": "MIT",
+  "keywords": [
+    "milvus",
+    "vector",
+    "php",
+    "database",
+    "image search",
+    "grpc"
+  ],
+  "authors": [
+    {
+      "name": "Andrey Volosyuk",
+      "email": "valasiuk.andrei@gmail.com"
+    }
+  ],
   "autoload": {
     "psr-4": {
       "Volosyuk\\MilvusPhp\\": "src/",
@@ -17,13 +32,8 @@
     "classmap": [
     ]
   },
-  "authors": [
-    {
-      "name": "Andrey Volosyuk",
-      "email": "valasiuk.andrei@gmail.com"
-    }
-  ],
   "require": {
+    "php": "^7.0",
     "google/protobuf": "^3.21",
     "grpc/grpc": "^1.42",
     "ext-grpc": "*"
