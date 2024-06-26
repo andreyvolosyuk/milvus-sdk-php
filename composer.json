@@ -1,5 +1,6 @@
 {
   "name": "volosyuk/milvus_php",
+  "license": "MIT",
   "autoload": {
     "psr-4": {
       "Volosyuk\\MilvusPhp\\": "src/",
