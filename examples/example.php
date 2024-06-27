@@ -156,7 +156,7 @@ function main()
     # release memory
     $collection->release();
 
-    $collection->dropIndex(VECTOR_FIELD_NAME);
+    $collection->getIndex(VECTOR_FIELD_NAME)->drop();
     print("\nDrop index sucessfully");
 
     # drop collection

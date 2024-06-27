@@ -39,13 +39,23 @@ jobs:
       - name: Install dependencies
         run: composer install --prefer-dist --no-progress
 
+      - name: Dump Autoload
+        run: composer dump-autoload
+
       - name: PHPUnit tests
         uses: php-actions/phpunit@v3
         with:
-          #configuration: "/app/phpunit.xml"
+          configuration: "phpunit.xml"
           php_version: 7.0
           version: 6.5.14
-          args: --configuration phpunit.xml tests
+          bootstrap: vendor/autoload.php
+          coverage_clover: "clover.xml"
+
+      - name: LS
+        run: ls
+
+      - name: Checkout code
+        uses: actions/checkout@v2
 
       - name: Make code coverage badge
         uses: timkrase/phpunit-coverage-badge@v1.2.1
