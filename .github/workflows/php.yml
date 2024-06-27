@@ -42,10 +42,10 @@ jobs:
       - name: PHPUnit tests
         uses: php-actions/phpunit@v3
         with:
-          configuration: "/app/phpunit.xml"
+          #configuration: "/app/phpunit.xml"
           php_version: 7.0
           version: 6.5.14
-          args: tests
+          args: --configuration /project/phpunit.xml tests
 
       - name: Make code coverage badge
         uses: timkrase/phpunit-coverage-badge@v1.2.1
