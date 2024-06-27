@@ -7,7 +7,7 @@ on:
     branches: [ "master" ]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -25,6 +25,9 @@ jobs:
 
       - name: Validate composer.json and composer.lock
         run: composer validate --strict
+
+      - name: Checkout code
+        uses: actions/checkout@v2
 
       - name: Cache Composer packages
         id: composer-cache
@@ -45,17 +48,14 @@ jobs:
       - name: PHPUnit tests
         uses: php-actions/phpunit@v3
         with:
+          php_extensions: "xdebug"
           configuration: "phpunit.xml"
           php_version: 7.0
           version: 6.5.14
           bootstrap: vendor/autoload.php
-          coverage_clover: "clover.xml"
-
-      - name: LS
-        run: ls
-
-      - name: Checkout code
-        uses: actions/checkout@v2
+          args: --coverage-clover clover.xml
+        env:
+          XDEBUG_MODE: coverage
 
       - name: Make code coverage badge
         uses: timkrase/phpunit-coverage-badge@v1.2.1
