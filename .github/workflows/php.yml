@@ -45,7 +45,7 @@ jobs:
           #configuration: "/app/phpunit.xml"
           php_version: 7.0
           version: 6.5.14
-          args: --configuration /project/phpunit.xml tests
+          args: --configuration phpunit.xml tests
 
       - name: Make code coverage badge
         uses: timkrase/phpunit-coverage-badge@v1.2.1
