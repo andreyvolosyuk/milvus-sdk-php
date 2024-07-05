@@ -175,6 +175,7 @@ class MilvusServiceClient
     {
         $request = new HasCollectionRequest();
         $request->setCollectionName($name);
+
         $func = $this
             ->getClient()
             ->HasCollection(
@@ -187,6 +188,7 @@ class MilvusServiceClient
          * @var BoolResponse $response
          */
         $response = $this->call($func);
+
         $this->checkStatus($response->getStatus());
 
         return $response->getValue();
@@ -339,7 +341,7 @@ class MilvusServiceClient
         $request->setCollectionName($name);
         $func = $this
             ->getClient()
-            ->describecollection(
+            ->DescribeCollection(
                 $request,
                 $this->getMetaData(),
                 $this->getOptions()
@@ -369,7 +371,14 @@ class MilvusServiceClient
         $request->setShardsNum($shardsNum);
         $request->setConsistencyLevel($consistencyLevel);
 
-        $func = $this->getClient()->createCollection($request, $this->getMetaData(), $this->getOptions());
+        $func = $this
+            ->getClient()
+            ->CreateCollection(
+                $request,
+                $this->getMetaData(),
+                $this->getOptions()
+            );
+
         $this->callAndProcessStatus($func);
     }
 
@@ -394,7 +403,13 @@ class MilvusServiceClient
 
         ParamChecker::isLegalShowType($type);
 
-        $func = $this->getClient()->showCollections($request, $this->getMetaData(), $this->getOptions());
+        $func = $this
+            ->getClient()
+            ->ShowCollections(
+                $request,
+                $this->getMetaData(),
+                $this->getOptions()
+            );
 
         /**
          * @var ShowCollectionsResponse $showCollectionsResponse
@@ -1389,7 +1404,9 @@ class MilvusServiceClient
      */
     private function call(UnaryCall $call)
     {
-        return $this->grpcHandler->call($call);
+        return $this
+            ->grpcHandler
+            ->call($call);
     }
 
     /**
@@ -1450,7 +1467,9 @@ class MilvusServiceClient
     private function getClient(): MilvusServiceClientBase
     {
         if ($this->client === null) {
-            $this->client = $this->grpcHandler->getStub($this->milvusClientClass);
+            $this->client = $this
+                ->grpcHandler
+                ->getStub($this->milvusClientClass);
         }
 
         return $this->client;

@@ -4,7 +4,6 @@ namespace Volosyuk\MilvusPhp\ORM\Schema;
 
 use Countable;
 use Milvus\Proto\Schema\CollectionSchema as GRPCCollectionSchema;
-use Milvus\Proto\Schema\DataType as DataType;
 use ReflectionException as ReflectionExceptionAlias;
 use Volosyuk\MilvusPhp\Exceptions\AutoIDException;
 use Volosyuk\MilvusPhp\Exceptions\DataTypeNotSupportException;
@@ -14,7 +13,6 @@ use Volosyuk\MilvusPhp\Exceptions\FieldTypeException;
 use Volosyuk\MilvusPhp\Exceptions\PrimaryKeyException;
 use Volosyuk\MilvusPhp\Exceptions\SchemaNotReadyException;
 use const Volosyuk\MilvusPhp\ORM\PRIMARY_KEY_TYPES;
-use const Volosyuk\MilvusPhp\ORM\VECTOR_DATA_TYPES;
 
 class CollectionSchema implements Countable {
     /**

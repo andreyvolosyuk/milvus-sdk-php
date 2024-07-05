@@ -44,7 +44,7 @@ class GRPCHandler
     private $settings;
 
     /**
-     * @param Settings|null $settings
+     * @param Settings $settings
      *
      * @throws Exception
      */

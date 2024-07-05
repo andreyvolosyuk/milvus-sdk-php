@@ -50,7 +50,7 @@ class ConnectionPool
             throw new ConnectionConfigException('ConnectionPool is not instantiated');
         }
 
-        if (!array_key_exists($alias, $this->connectionPool)) {
+        if (!$this->hasConnection($alias)) {
             throw new ConnectionConfigException(sprintf('Connection with the alias %s was not established', $alias));
         }
 

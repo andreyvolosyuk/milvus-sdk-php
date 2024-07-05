@@ -7,6 +7,7 @@ use Milvus\Proto\Milvus\IndexDescription;
 use Milvus\Proto\Milvus\MutationResult;
 use Milvus\Proto\Schema\LongArray;
 use ReflectionException;
+use UnexpectedValueException;
 use Volosyuk\MilvusPhp\Client\ChunkedQueryResult;
 use Volosyuk\MilvusPhp\Client\MilvusServiceClient;
 use Volosyuk\MilvusPhp\Exceptions\DataNotMatchException;
@@ -18,13 +19,12 @@ use Volosyuk\MilvusPhp\Exceptions\IndexNotExistException;
 use Volosyuk\MilvusPhp\Exceptions\MilvusException;
 use Volosyuk\MilvusPhp\Exceptions\ParamException;
 use Volosyuk\MilvusPhp\Exceptions\SchemaNotReadyException;
-use Volosyuk\MilvusPhp\Exceptions\ValueError;
 use Volosyuk\MilvusPhp\ORM\Schema\CollectionSchema;
 use Volosyuk\MilvusPhp\ORM\Schema\Index;
 use function Volosyuk\MilvusPhp\ORM\Schema\checkInsertDataSchema;
+use function Volosyuk\MilvusPhp\ORM\Schema\inferConsistencyLevel;
 use function Volosyuk\MilvusPhp\ORM\Schema\keyValuePairsToArray;
 use function Volosyuk\MilvusPhp\ORM\Schema\prepareInsertData;
-use function Volosyuk\MilvusPhp\ORM\Schema\inferConsistencyLevel;
 use const Volosyuk\MilvusPhp\Client\DEFAULT_CONSISTENCY_LEVEL;
 
 class Collection {
@@ -38,6 +38,9 @@ class Collection {
      */
     private $schema;
 
+    /**
+     * @var string
+     */
     private $using;
 
     /**
@@ -57,11 +60,7 @@ class Collection {
      * @param int $shardsNum
      * @param array $collectionParams
      *
-     * @throws GRPCException
-     * @throws MilvusException
-     * @throws ParamException
-     * @throws SchemaNotReadyException
-     * @throws ReflectionException
+     * @throws GRPCException|MilvusException|ParamException|SchemaNotReadyException|ReflectionException
      */
     public function __construct(string $name, CollectionSchema $schema = null, string $using = "default", int $shardsNum = 2, $collectionParams = [])
     {
@@ -86,6 +85,7 @@ class Collection {
                     throw new SchemaNotReadyException(ExceptionMessage::CONSISTENCY_LEVEL_INCONSISTENT);
                 }
             }
+
             $serverSchema = CollectionSchema::fromGRPC($descCollectionResp->getSchema());
             if (!$schema) {
                 $this->schema = $serverSchema;
@@ -100,12 +100,14 @@ class Collection {
                 throw new SchemaNotReadyException(sprintf(ExceptionMessage::COLLECTION_NOT_EXIST_NO_SCHEMA, $this->name));
             }
             $consistencyLevel = $collectionParams["consistency_level"] ?? DEFAULT_CONSISTENCY_LEVEL;
-            $this->getClient()->createCollection(
-                $this->name,
-                $schema->toGRPC(),
-                $shardsNum,
-                $consistencyLevel
-            );
+            $this
+                ->getClient()
+                ->createCollection(
+                    $this->name,
+                    $schema->toGRPC(),
+                    $shardsNum,
+                    $consistencyLevel
+                );
             $this->schema = $schema;
             $this->consitencyLevel = $consistencyLevel;
         }
@@ -194,6 +196,7 @@ class Collection {
      * @param array|int[] $segmentIDs
      *
      * @return bool
+     *
      * @throws GRPCException|MilvusException
      */
     public function getFlushState(array $segmentIDs): bool
@@ -259,7 +262,7 @@ class Collection {
     }
 
     /**
-     * @return int|string
+     * @return int
      *
      * @throws GRPCException|MilvusException|Exception
      */

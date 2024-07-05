@@ -25,6 +25,7 @@
     "files": [
       "src/ORM/constants.php",
       "src/Client/constants.php",
+      "src/Client/helpers.php",
       "src/ORM/Schema/helpers.php",
       "src/ORM/Schema/constants.php",
       "src/ORM/utility.php"
