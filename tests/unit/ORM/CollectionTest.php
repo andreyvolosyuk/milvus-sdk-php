@@ -38,10 +38,6 @@ class CollectionTest extends TestCase
      */
     private function getConnectionPoolMock()
     {
-        $channel = $this->getMockBuilder(Channel::class)
-            ->disableOriginalConstructor()
-            ->getMock();
-
         $this->handler = $this
             ->getMockBuilder(GRPCHandler::class)
             ->disableOriginalConstructor()
@@ -52,7 +48,6 @@ class CollectionTest extends TestCase
         $stub = $this
             ->getMockBuilder(MilvusServiceClientBase::class)
             ->disableOriginalConstructor()
-            //->setConstructorArgs(["set", [], $channel])
             ->setMethodsExcept([])
             ->getMock();
 
@@ -183,6 +178,19 @@ class CollectionTest extends TestCase
         $this->createCollection("collection", $schema, "default", 2, [
             "consistency_level" => ConsistencyLevel::Strong
         ]);
+    }
+
+    public function test_exception_on_collection_create_without_the_schema()
+    {
+        $this
+            ->handler
+            ->method("call")
+            ->willReturnOnConsecutiveCalls(
+                $this->getBoolResponse(false, ErrorCode::Success)
+            );
+
+        $this->expectException(SchemaNotReadyException::class);
+        $this->createCollection("collection");
     }
 
     protected function getObjectMethod($object, $methodName)
